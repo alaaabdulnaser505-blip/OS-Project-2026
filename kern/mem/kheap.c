@@ -8,7 +8,7 @@
 #include "../conc/kspinlock.h"
 #include "../conc/ksemaphore.h"
 #include <kern/cpu/cpu.h>
-
+#define PERM_BUDDY 0x800     //el bit el fadia fl frame
 /************************************************************************************/
 //==================================================================================//
 //============================== GIVEN FUNCTIONS ===================================//
@@ -62,7 +62,22 @@ void  delete_buddy_space(void *va)
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [5] delete_buddy_space
 	//Your code is here
 	//Comment the following line
-	panic("delete_buddy_space() not implemented");
+	//panic("delete_buddy_space() not implemented");
+
+	uint32 pageVA = ROUNDDOWN((uint32)va, PAGE_SIZE);
+
+    int permissions = pt_get_page_permissions(ptr_page_directory, pageVA);
+
+    if (pageVA < kheapPageAllocStart ||
+		pageVA >= kheapPageAllocBreak ||
+        !(permissions & PERM_BUDDY))
+    {
+        panic("invalid buddy space");
+    }
+
+    pt_set_page_permissions(ptr_page_directory, pageVA, 0, PERM_BUDDY);
+
+    kfree((void *)pageVA);
 }
 
 /**************************************************/
