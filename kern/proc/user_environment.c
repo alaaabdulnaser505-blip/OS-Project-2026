@@ -922,7 +922,7 @@ void* create_user_kern_stack(uint32* ptr_user_page_directory)
 	//panic("create_user_kern_stack() is not implemented yet...!!");
 	void* stack_ptr = kmalloc(KERNEL_STACK_SIZE);
 	if (stack_ptr == NULL)
-		panic("there isn't enough kernel heap space for the user kernel stack");
+		panic("failed to allocate kernel stack");
 	
 	pt_set_page_permissions(ptr_user_page_directory, (uint32)stack_ptr, 0, PERM_PRESENT);
 
