@@ -178,7 +178,8 @@ void fault_handler(struct Trapframe *tf)
 			if (fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX && (page_table_permissions & PERM_UHPAGE) == 0)
 				env_exit();
 
-			if ((page_table_permissions & PERM_PRESENT) && ((page_table_permissions & PERM_WRITEABLE) == 0 || (page_table_permissions & PERM_USER) == 0))
+			if ((page_table_permissions & PERM_PRESENT) && 
+				((page_table_permissions & PERM_WRITEABLE) == 0 || (page_table_permissions & PERM_USER) == 0))
 				env_exit();
 
 			/*============================================================================================*/
@@ -287,7 +288,7 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 
 			int ret = alloc_page(faulted_env->env_page_directory, va, PERM_USER | PERM_WRITEABLE, 0);
 			if (ret == E_NO_MEM)
-				panic("not enough memory to allocate a frame for the faulted page");
+				panic("no memory for faulted page");
 
 			ret = pf_read_env_page(faulted_env, (void*)va);
 
@@ -311,9 +312,13 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 			struct WorkingSetElement* newElement = env_page_ws_list_create_element(faulted_env, va);
 			
 			LIST_INSERT_TAIL(&(faulted_env->page_WS_active_list), newElement);
+
+			int total_workingSet_Size=  
+					LIST_SIZE(&(faulted_env->page_WS_active_list)) 
+					+ LIST_SIZE(&(faulted_env->page_WS_second_list));
 			
 			//lw el working set full 5ly page_last_WS_element y point 31a awl element lw msh full 5leha NULL
-			if (LIST_SIZE(&(faulted_env->page_WS_active_list)) + LIST_SIZE(&(faulted_env->page_WS_second_list)) == faulted_env->page_WS_max_size)
+			if (total_workingSet_Size == faulted_env->page_WS_max_size)
 				faulted_env->page_last_WS_element = LIST_FIRST(&(faulted_env->page_WS_active_list));
 			else
 				faulted_env->page_last_WS_element = NULL;
