@@ -175,11 +175,12 @@ void fault_handler(struct Trapframe *tf)
 
 			int page_table_permissions = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
 
-			if (fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX && (page_table_permissions & PERM_UHPAGE) == 0)
+			if (fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX &&
+					(page_table_permissions == -1 || (page_table_permissions & PERM_UHPAGE) == 0))
 				env_exit();
 
-			if ((page_table_permissions & PERM_PRESENT) && 
-				((page_table_permissions & PERM_WRITEABLE) == 0 || (page_table_permissions & PERM_USER) == 0))
+			if (page_table_permissions != -1 && (page_table_permissions & PERM_PRESENT) &&
+					((page_table_permissions & PERM_WRITEABLE) == 0 || (page_table_permissions & PERM_USER) == 0))
 				env_exit();
 
 			/*============================================================================================*/
