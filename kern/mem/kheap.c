@@ -63,14 +63,16 @@ void  delete_buddy_space(void *va)
 	//Your code is here
 	//Comment the following line
 	//panic("delete_buddy_space() not implemented");
-
+	
+    if (va == NULL)
+    	panic("NULL address");
 	uint32 pageVA = ROUNDDOWN((uint32)va, PAGE_SIZE);
 
     int permissions = pt_get_page_permissions(ptr_page_directory, pageVA);
 
-    if (pageVA < kheapPageAllocStart ||
+   if (pageVA < kheapPageAllocStart ||
 		pageVA >= kheapPageAllocBreak ||
-        !(permissions & PERM_BUDDY))
+		permissions < 0 || !(permissions & PERM_PRESENT) || !(permissions & PERM_BUDDY))
     {
         panic("invalid buddy space");
     }
