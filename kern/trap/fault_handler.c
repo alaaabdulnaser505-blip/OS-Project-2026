@@ -173,14 +173,14 @@ void fault_handler(struct Trapframe *tf)
 			if (CHECK_IF_KERNEL_ADDRESS(fault_va))
 				env_exit();
 
-			int page_table_permissions = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
+			int faultedPagePerms = pt_get_page_permissions(faulted_env->env_page_directory, fault_va);
 
 			if (fault_va >= USER_HEAP_START && fault_va < USER_HEAP_MAX &&
-					(page_table_permissions == -1 || (page_table_permissions & PERM_UHPAGE) == 0))
+					(faultedPagePerms == -1 || (faultedPagePerms & PERM_UHPAGE) == 0))
 				env_exit();
 
-			if (page_table_permissions != -1 && (page_table_permissions & PERM_PRESENT) &&
-					((page_table_permissions & PERM_WRITEABLE) == 0 || (page_table_permissions & PERM_USER) == 0))
+			if (faultedPagePerms != -1 && (faultedPagePerms & PERM_PRESENT) &&
+					((faultedPagePerms & PERM_WRITEABLE) == 0 || (faultedPagePerms & PERM_USER) == 0))
 				env_exit();
 
 			/*============================================================================================*/
@@ -285,32 +285,32 @@ void page_fault_handler(struct Env * faulted_env, uint32 fault_va)
 			//Your code is here
 			//Comment the following line
 			//panic("page_fault_handler().FIFO PLACEMENT is not implemented yet...!!");
-			uint32 va = ROUNDDOWN(fault_va, PAGE_SIZE);
+			uint32 FaultVA  = ROUNDDOWN(fault_va, PAGE_SIZE);
 
-			int ret = alloc_page(faulted_env->env_page_directory, va, PERM_USER | PERM_WRITEABLE, 0);
-			if (ret == E_NO_MEM)
+			int pageResult = alloc_page(faulted_env->env_page_directory, FaultVA , PERM_USER | PERM_WRITEABLE, 0);
+			if (pageResult == E_NO_MEM)
 				panic("no memory for faulted page");
 
-			ret = pf_read_env_page(faulted_env, (void*)va);
+			pageResult = pf_read_env_page(faulted_env, (void*)FaultVA );
 
-			if (ret == E_PAGE_NOT_EXIST_IN_PF)
+			if (pageResult == E_PAGE_NOT_EXIST_IN_PF)
 			{
 				// bndwr 3leha fl stack w heap first lw msh tb3hm unmap 
-				bool isStackPage = (va >= USTACKBOTTOM && va < USTACKTOP);
-				bool isHeapPage = (va >= USER_HEAP_START && va < USER_HEAP_MAX);
+				bool isStackPage = (FaultVA  >= USTACKBOTTOM && FaultVA < USTACKTOP);
+				bool isHeapPage = (FaultVA  >= USER_HEAP_START && FaultVA < USER_HEAP_MAX);
 				if (isStackPage || isHeapPage)
 				{
-					memset((void*)va, 0, PAGE_SIZE);
-					pt_set_page_permissions(faulted_env->env_page_directory, va, 0, PERM_MODIFIED);
+					memset((void*)FaultVA , 0, PAGE_SIZE);
+					pt_set_page_permissions(faulted_env->env_page_directory, FaultVA , 0, PERM_MODIFIED);
 				}
 				else
 				{
-					unmap_frame(faulted_env->env_page_directory, va);
+					unmap_frame(faulted_env->env_page_directory, FaultVA);
 					env_exit();
 				}
 			}
 
-			struct WorkingSetElement* newElement = env_page_ws_list_create_element(faulted_env, va);
+			struct WorkingSetElement* newElement = env_page_ws_list_create_element(faulted_env, FaultVA);
 			
 			LIST_INSERT_TAIL(&(faulted_env->page_WS_active_list), newElement);
 
