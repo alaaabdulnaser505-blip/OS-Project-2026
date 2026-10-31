@@ -66,20 +66,20 @@ void  delete_buddy_space(void *va)
 	
     if (va == NULL)
     	panic("NULL address");
-	uint32 pageVA = ROUNDDOWN((uint32)va, PAGE_SIZE);
+	uint32 buddyPageVA = ROUNDDOWN((uint32)va, PAGE_SIZE);
 
-    int permissions = pt_get_page_permissions(ptr_page_directory, pageVA);
+    int buddyPagePerms = pt_get_page_permissions(ptr_page_directory, buddyPageVA);
 
-   if (pageVA < kheapPageAllocStart ||
-		pageVA >= kheapPageAllocBreak ||
-		permissions < 0 || !(permissions & PERM_PRESENT) || !(permissions & PERM_BUDDY))
+   if (buddyPageVA < kheapPageAllocStart ||
+		buddyPageVA >= kheapPageAllocBreak ||
+		buddyPagePerms < 0 || !(buddyPagePerms & PERM_PRESENT) || !(buddyPagePerms & PERM_BUDDY))
     {
         panic("invalid buddy space");
     }
 
-    pt_set_page_permissions(ptr_page_directory, pageVA, 0, PERM_BUDDY);
+    pt_set_page_permissions(ptr_page_directory, buddyPageVA, 0, PERM_BUDDY);
 
-    kfree((void *)pageVA);
+    kfree((void *)buddyPageVA);
 }
 
 /**************************************************/
