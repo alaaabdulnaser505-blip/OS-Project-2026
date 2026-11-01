@@ -60,54 +60,89 @@ void *alloc_block(uint32 requiredSize)
 {
 //TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [2] alloc_block
 //Your code is here
-	uint32 TOTAL_SIZE = requiredSize + META_DATA_SIZE;
-	uint32 MIN_SIZE_CAN_BE_ALLOCATED=BUDDY_LOWER_LEVEL;
+	   uint32 TOTAL_SIZE = requiredSize + META_DATA_SIZE;
+    uint32 MIN_SIZE_CAN_BE_ALLOCATED = BUDDY_LOWER_LEVEL;
 
-	if(requiredSize ==0){
-		return NULL;
-	}
+    if (requiredSize == 0)
+    {
+        return NULL;
+    }
 
-	for(;MIN_SIZE_CAN_BE_ALLOCATED<=BUDDY_UPPER_LEVEL;){
-		if(BLOCK_SIZE(MIN_SIZE_CAN_BE_ALLOCATED)<TOTAL_SIZE)
-		{
-		  MIN_SIZE_CAN_BE_ALLOCATED++;
-		}
-		else{
-			break;
-		}
-	}
-	if(MIN_SIZE_CAN_BE_ALLOCATED>BUDDY_UPPER_LEVEL){
-		return NULL;
-	}
-	uint32 PROPER_LEVEL = MIN_SIZE_CAN_BE_ALLOCATED;
+    for (; MIN_SIZE_CAN_BE_ALLOCATED <= BUDDY_UPPER_LEVEL;)
+    {
+        if (BLOCK_SIZE(MIN_SIZE_CAN_BE_ALLOCATED) < TOTAL_SIZE)
+        {
+            MIN_SIZE_CAN_BE_ALLOCATED++;
+        }
+        else
+        {
+            break;
+        }
+    }
 
-	for(;PROPER_LEVEL<=BUDDY_UPPER_LEVEL;PROPER_LEVEL++){
-		if(!LIST_EMPTY(&freeBlockLists[PROPER_LEVEL]))
-			break;
-	}
-	if(PROPER_LEVEL>BUDDY_UPPER_LEVEL){
-		return NULL;
-	}
+    if (MIN_SIZE_CAN_BE_ALLOCATED > BUDDY_UPPER_LEVEL)
+    {
+        return NULL;
+    }
 
-	struct BlockMetaData *MIN_BLOCK_TO_ALLOCATE=LIST_FIRST(&freeBlockLists[PROPER_LEVEL]);
-	LIST_REMOVE(&freeBlockLists[PROPER_LEVEL],MIN_BLOCK_TO_ALLOCATE);
+    uint32 PROPER_LEVEL = MIN_SIZE_CAN_BE_ALLOCATED;
 
-	for(;PROPER_LEVEL>MIN_SIZE_CAN_BE_ALLOCATED;){
-		PROPER_LEVEL--;
-		uint32 HALF_BLOCK_SIZE=BLOCK_SIZE(PROPER_LEVEL);
-		struct BlockMetaData *BUDDY_BLOCK=(struct BlockMetaData*)((uint8*)MIN_BLOCK_TO_ALLOCATE+HALF_BLOCK_SIZE);
-		BUDDY_BLOCK->level=PROPER_LEVEL;
-		BUDDY_BLOCK->is_free=1;
+    for (; PROPER_LEVEL <= BUDDY_UPPER_LEVEL; PROPER_LEVEL++)
+    {
+        if (!LIST_EMPTY(&freeBlockLists[PROPER_LEVEL]))
+        {
+            break;
+        }
+    }
 
-		MIN_BLOCK_TO_ALLOCATE->level=PROPER_LEVEL;
 
-		LIST_INSERT_HEAD(&freeBlockLists[PROPER_LEVEL],BUDDY_BLOCK);
-	}
+    if (PROPER_LEVEL > BUDDY_UPPER_LEVEL)
+    {
+        struct BlockMetaData *NEW_BLOCK =
+            (struct BlockMetaData*)create_buddy_space();
 
-	MIN_BLOCK_TO_ALLOCATE->level=MIN_SIZE_CAN_BE_ALLOCATED;
-	MIN_BLOCK_TO_ALLOCATE->is_free=0;
-	return (void*)((uint8*)MIN_BLOCK_TO_ALLOCATE+META_DATA_SIZE);
+        if (NEW_BLOCK == NULL)
+        {
+            return NULL;
+        }
 
+        NEW_BLOCK->level = BUDDY_UPPER_LEVEL;
+        NEW_BLOCK->is_free = 1;
+
+        LIST_INSERT_HEAD(&freeBlockLists[BUDDY_UPPER_LEVEL], NEW_BLOCK);
+
+        PROPER_LEVEL = BUDDY_UPPER_LEVEL;
+    }
+
+
+    struct BlockMetaData *MIN_BLOCK_TO_ALLOCATE =
+        LIST_FIRST(&freeBlockLists[PROPER_LEVEL]);
+
+    LIST_REMOVE(&freeBlockLists[PROPER_LEVEL], MIN_BLOCK_TO_ALLOCATE);
+
+    for (; PROPER_LEVEL > MIN_SIZE_CAN_BE_ALLOCATED;)
+    {
+        PROPER_LEVEL--;
+
+        uint32 HALF_BLOCK_SIZE = BLOCK_SIZE(PROPER_LEVEL);
+
+        struct BlockMetaData *BUDDY_BLOCK =
+            (struct BlockMetaData*)((uint8*)MIN_BLOCK_TO_ALLOCATE
+                                    + HALF_BLOCK_SIZE);
+
+        BUDDY_BLOCK->level = PROPER_LEVEL;
+        BUDDY_BLOCK->is_free = 1;
+
+        MIN_BLOCK_TO_ALLOCATE->level = PROPER_LEVEL;
+        MIN_BLOCK_TO_ALLOCATE->is_free = 1;
+
+        LIST_INSERT_HEAD(&freeBlockLists[PROPER_LEVEL], BUDDY_BLOCK);
+    }
+
+    MIN_BLOCK_TO_ALLOCATE->level = MIN_SIZE_CAN_BE_ALLOCATED;
+    MIN_BLOCK_TO_ALLOCATE->is_free = 0;
+
+    return (void*)((uint8*)MIN_BLOCK_TO_ALLOCATE + META_DATA_SIZE);
 	//Comment the following line
 	//panic("alloc_block() not implemented");
 	}
@@ -117,49 +152,49 @@ void *alloc_block(uint32 requiredSize)
 //===================================================
 void free_block(void *va)
 {
-    if (va == NULL)
+   if (va == NULL)
+    {
         return;
+    }
 
-    struct BlockMetaData *currBlk =(struct BlockMetaData *)((uint8 *)va - META_DATA_SIZE);
+    struct BlockMetaData *currBlk =
+        (struct BlockMetaData*)((uint8*)va - META_DATA_SIZE);
 
     uint32 currLvl = currBlk->level;
-    struct BlockMetaData*itr;
-    struct BlockMetaData*BuddyBlk;
-    int isFnd;
+
     currBlk->is_free = 1;
 
-   for(;currLvl<BUDDY_UPPER_LEVEL;)
-   {
-	   BuddyBlk=(struct BlockMetaData *)((uint32)currBlk^BLOCK_SIZE(currLvl));
+    for (; currLvl < BUDDY_UPPER_LEVEL;)
+    {
+        struct BlockMetaData *BuddyBlk =
+            (struct BlockMetaData*)((uint32)currBlk ^ BLOCK_SIZE(currLvl));
 
-	   if(BuddyBlk->level!=currLvl)
-		   break;
+        if (BuddyBlk->level != currLvl || BuddyBlk->is_free != 1)
+        {
+            break;
+        }
 
-	   if(BuddyBlk->is_free!=1)
-		   break;
+        LIST_REMOVE(&freeBlockLists[currLvl], BuddyBlk);
 
-	   isFnd=0;
+        
+        if ((uint32)BuddyBlk < (uint32)currBlk)
+        {
+            currBlk = BuddyBlk;
+        }
 
-	   for(itr=freeBlockLists[currLvl].lh_first;itr!=NULL;itr=itr->prev_next_info.le_next)
-	   {
-		   if(itr==BuddyBlk){
-			   isFnd=1;
-			   break;
-		   }
-	   }
 
-	   if(isFnd==0)
-		   break;
+        currLvl++;
 
-	   LIST_REMOVE(&freeBlockLists[currLvl],BuddyBlk);
-	   if(BuddyBlk<currBlk){
-		   currBlk=BuddyBlk;
+        currBlk->level = currLvl;
+        currBlk->is_free = 1;
+    }
 
-	   }
-	   currLvl++;
-	   currBlk->level=currLvl;
-	   currBlk->is_free=1;
-   }
+
+    if (currLvl == BUDDY_UPPER_LEVEL)
+    {
+        delete_buddy_space((void*)currBlk);
+        return;
+    }
 
     LIST_INSERT_HEAD(&freeBlockLists[currLvl], currBlk);
 }
