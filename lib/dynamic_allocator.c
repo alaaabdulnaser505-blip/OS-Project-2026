@@ -60,13 +60,18 @@ void *alloc_block(uint32 requiredSize)
 {
 //TODO: [PROJECT'26.GM#1] DYNAMIC ALLOCATOR - [2] alloc_block
 //Your code is here
-	   uint32 TOTAL_SIZE = requiredSize + META_DATA_SIZE;
-    uint32 MIN_SIZE_CAN_BE_ALLOCATED = BUDDY_LOWER_LEVEL;
-
-    if (requiredSize == 0)
+ if (requiredSize == 0)
     {
         return NULL;
     }
+
+    if (requiredSize > BLOCK_SIZE(BUDDY_UPPER_LEVEL) - META_DATA_SIZE)
+    {
+        return NULL;
+    }
+
+    uint32 TOTAL_SIZE = requiredSize + META_DATA_SIZE;
+    uint32 MIN_SIZE_CAN_BE_ALLOCATED = BUDDY_LOWER_LEVEL;
 
     for (; MIN_SIZE_CAN_BE_ALLOCATED <= BUDDY_UPPER_LEVEL;)
     {
@@ -95,25 +100,28 @@ void *alloc_block(uint32 requiredSize)
         }
     }
 
-
     if (PROPER_LEVEL > BUDDY_UPPER_LEVEL)
     {
-        struct BlockMetaData *NEW_BLOCK =
-            (struct BlockMetaData*)create_buddy_space();
-
-        if (NEW_BLOCK == NULL)
+        void *page = create_buddy_space();
+        if (page == NULL)+
         {
             return NULL;
         }
 
-        NEW_BLOCK->level = BUDDY_UPPER_LEVEL;
-        NEW_BLOCK->is_free = 1;
+        struct BlockMetaData *left  = (struct BlockMetaData*)page;
+        struct BlockMetaData *right =
+            (struct BlockMetaData*)((uint8*)page + BLOCK_SIZE(BUDDY_UPPER_LEVEL));
 
-        LIST_INSERT_HEAD(&freeBlockLists[BUDDY_UPPER_LEVEL], NEW_BLOCK);
+        left->level  = BUDDY_UPPER_LEVEL;
+        left->is_free = 1;
+        right->level = BUDDY_UPPER_LEVEL;
+        right->is_free = 1;
+
+        LIST_INSERT_HEAD(&freeBlockLists[BUDDY_UPPER_LEVEL], right);
+        LIST_INSERT_HEAD(&freeBlockLists[BUDDY_UPPER_LEVEL], left);
 
         PROPER_LEVEL = BUDDY_UPPER_LEVEL;
     }
-
 
     struct BlockMetaData *MIN_BLOCK_TO_ALLOCATE =
         LIST_FIRST(&freeBlockLists[PROPER_LEVEL]);
@@ -124,11 +132,9 @@ void *alloc_block(uint32 requiredSize)
     {
         PROPER_LEVEL--;
 
-        uint32 HALF_BLOCK_SIZE = BLOCK_SIZE(PROPER_LEVEL);
-
         struct BlockMetaData *BUDDY_BLOCK =
             (struct BlockMetaData*)((uint8*)MIN_BLOCK_TO_ALLOCATE
-                                    + HALF_BLOCK_SIZE);
+                                    + BLOCK_SIZE(PROPER_LEVEL));
 
         BUDDY_BLOCK->level = PROPER_LEVEL;
         BUDDY_BLOCK->is_free = 1;
@@ -142,6 +148,7 @@ void *alloc_block(uint32 requiredSize)
     MIN_BLOCK_TO_ALLOCATE->level = MIN_SIZE_CAN_BE_ALLOCATED;
     MIN_BLOCK_TO_ALLOCATE->is_free = 0;
 
+	
     return (void*)((uint8*)MIN_BLOCK_TO_ALLOCATE + META_DATA_SIZE);
 	//Comment the following line
 	//panic("alloc_block() not implemented");
@@ -152,7 +159,7 @@ void *alloc_block(uint32 requiredSize)
 //===================================================
 void free_block(void *va)
 {
-   if (va == NULL)
+if (va == NULL)
     {
         return;
     }
@@ -160,8 +167,12 @@ void free_block(void *va)
     struct BlockMetaData *currBlk =
         (struct BlockMetaData*)((uint8*)va - META_DATA_SIZE);
 
-    uint32 currLvl = currBlk->level;
+    if (currBlk->is_free)
+    {
+        return;
+    }
 
+    uint32 currLvl = currBlk->level;
     currBlk->is_free = 1;
 
     for (; currLvl < BUDDY_UPPER_LEVEL;)
@@ -169,34 +180,40 @@ void free_block(void *va)
         struct BlockMetaData *BuddyBlk =
             (struct BlockMetaData*)((uint32)currBlk ^ BLOCK_SIZE(currLvl));
 
-        if (BuddyBlk->level != currLvl || BuddyBlk->is_free != 1)
+        if (BuddyBlk->is_free != 1 || BuddyBlk->level != currLvl)
         {
             break;
         }
 
         LIST_REMOVE(&freeBlockLists[currLvl], BuddyBlk);
 
-        
+
         if ((uint32)BuddyBlk < (uint32)currBlk)
         {
             currBlk = BuddyBlk;
         }
 
-
         currLvl++;
-
         currBlk->level = currLvl;
         currBlk->is_free = 1;
     }
 
-
+  
     if (currLvl == BUDDY_UPPER_LEVEL)
     {
-        delete_buddy_space((void*)currBlk);
-        return;
+        struct BlockMetaData *BuddyBlk =
+            (struct BlockMetaData*)((uint32)currBlk ^ BLOCK_SIZE(BUDDY_UPPER_LEVEL));
+
+        if (BuddyBlk->is_free == 1 && BuddyBlk->level == BUDDY_UPPER_LEVEL)
+        {
+            LIST_REMOVE(&freeBlockLists[BUDDY_UPPER_LEVEL], BuddyBlk);
+            delete_buddy_space((void*)ROUNDDOWN((uint32)currBlk, PAGE_SIZE));
+            return;
+        }
     }
 
     LIST_INSERT_HEAD(&freeBlockLists[currLvl], currBlk);
+      
 }
 
 
