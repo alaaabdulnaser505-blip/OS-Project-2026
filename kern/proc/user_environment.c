@@ -923,6 +923,13 @@ void* create_user_kern_stack(uint32* ptr_user_page_directory)
 	void* userKernStack = kmalloc(KERNEL_STACK_SIZE);
 	if (userKernStack == NULL)
 		panic("failed to allocate kernel stack");
+
+	//el PDEs etnasakhet abl el call da, fa ay table gdeeda 3mlaha kmalloc lazem ttrbt fel user directory
+    for (uint32 stackPageVA = (uint32)userKernStack; stackPageVA < (uint32)userKernStack + KERNEL_STACK_SIZE; stackPageVA += PAGE_SIZE)
+	{
+		if (ptr_user_page_directory[PDX(stackPageVA)] != ptr_page_directory[PDX(stackPageVA)])
+			ptr_user_page_directory[PDX(stackPageVA)] = ptr_page_directory[PDX(stackPageVA)];
+	}
 	
 	pt_set_page_permissions(ptr_user_page_directory, (uint32)userKernStack, 0, PERM_PRESENT);
 
