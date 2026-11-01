@@ -43,18 +43,27 @@ void* create_buddy_space()
 {
 	//TODO: [PROJECT'26.GM#2] KERNEL HEAP - [4] create_buddy_space
 	//Your code is here
-	uint32 pageVirtualAddress=kheapPageAllocBreak;
-	if(pageVirtualAddress>KERNEL_HEAP_MAX||PAGE_SIZE>KERNEL_HEAP_MAX-pageVirtualAddress)
-	{
-		return NULL;
-	}
-	if(alloc_page(ptr_page_directory,pageVirtualAddress,PERM_WRITEABLE|PERM_BUDDY,1)!=0){
-		return NULL;
-	}
-	kheapPageAllocBreak=pageVirtualAddress+PAGE_SIZE;
-	return(void*)pageVirtualAddress;
+	 uint32 pageVirtualAddress = kheapPageAllocBreak;
+
+    if (pageVirtualAddress > KERNEL_HEAP_MAX ||
+        PAGE_SIZE > KERNEL_HEAP_MAX - pageVirtualAddress)
+    {
+        return NULL;
+    }
+
+    if (alloc_page(ptr_page_directory,
+                   pageVirtualAddress,
+                   PERM_WRITEABLE | PERM_BUDDY,
+                   1) != 0)
+    {
+        return NULL;
+    }
+
+    kheapPageAllocBreak = pageVirtualAddress + PAGE_SIZE;
+
+    return (void*)pageVirtualAddress;
 	//Comment the following line
-	panic("create_buddy_space() not implemented");
+	//panic("create_buddy_space() not implemented");
 }
 
 void  delete_buddy_space(void *va)
