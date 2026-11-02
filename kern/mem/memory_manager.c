@@ -373,20 +373,33 @@ int map_frame(uint32 *ptr_page_directory, struct FrameInfo *ptr_frame_info, uint
 	/*NEW'15 CORRECT SOLUTION*/
 	//If already mapped
 	if ((page_table_entry & PERM_PRESENT) == PERM_PRESENT)
-	{
-		//on this pa, then do nothing
-		if (EXTRACT_ADDRESS(page_table_entry) == physical_address)
-			return 0;
-		//on another pa, then unmap it
-		else
-			unmap_frame(ptr_page_directory , virtual_address);
-	}
+{
+    if (EXTRACT_ADDRESS(page_table_entry) == physical_address)
+    {
+        if (virtual_address >= KERNEL_HEAP_START &&
+            virtual_address < KERNEL_HEAP_MAX)
+        {
+            ptr_frame_info->kheap_va = virtual_address;
+        }
+
+        return 0;
+    }
+    else
+    {
+        unmap_frame(ptr_page_directory, virtual_address);
+    }
+}
 	ptr_frame_info->references++;
 
 	/*********************************************************************************/
 	/*NEW'23 el7:) [DONE] map_frame(): KEEP THE VALUES OF THE AVAILABLE BITS*/
 	uint32 pte_available_bits = ptr_page_table[PTX(virtual_address)] & PERM_AVAILABLE;
 	ptr_page_table[PTX(virtual_address)] = CONSTRUCT_ENTRY(physical_address , pte_available_bits | perm | PERM_PRESENT);
+	if (virtual_address >= KERNEL_HEAP_START &&
+    virtual_address < KERNEL_HEAP_MAX)
+{
+    ptr_frame_info->kheap_va = virtual_address;
+}
 	/*********************************************************************************/
 
 	return 0;
@@ -399,6 +412,7 @@ int map_frame(uint32 *ptr_page_directory, struct FrameInfo *ptr_frame_info, uint
 // If the page table entry corresponding to 'virtual_address' exists, then we store a pointer to the table in 'ptr_page_table'
 // Return 0 if there is no frame mapped/buffered at virtual_address.
 //
+
 struct FrameInfo * get_frame_info(uint32 *ptr_page_directory, uint32 virtual_address, uint32 **ptr_page_table)
 {
 	// Fill this function in
@@ -436,26 +450,46 @@ struct FrameInfo * get_frame_info(uint32 *ptr_page_directory, uint32 virtual_add
 // Hint: implement using get_frame_info(),
 // 	tlb_invalidate(), and decrement_references().
 //
+
 void unmap_frame(uint32 *ptr_page_directory, uint32 virtual_address)
 {
-	// Fill this function in
-	uint32 *ptr_page_table;
-	struct FrameInfo* ptr_frame_info = get_frame_info(ptr_page_directory, virtual_address, &ptr_page_table);
-	if( ptr_frame_info != 0 )
-	{
-		if (ptr_frame_info->isBuffered && !CHECK_IF_KERNEL_ADDRESS((uint32)virtual_address))
-			cprintf("WARNING: Freeing BUFFERED frame at va %x!!!\n", virtual_address) ;
-		decrement_references(ptr_frame_info);
+    uint32 *ptr_page_table;
 
-		/*********************************************************************************/
-		/*NEW'23 el7:) [DONE] unmap_frame(): KEEP THE VALUES OF THE AVAILABLE BITS*/
-		uint32 pte_available_bits = ptr_page_table[PTX(virtual_address)] & PERM_AVAILABLE;
-		ptr_page_table[PTX(virtual_address)] = pte_available_bits;
-		/*********************************************************************************/
+    struct FrameInfo *ptr_frame_info =
+        get_frame_info(
+            ptr_page_directory,
+            virtual_address,
+            &ptr_page_table
+        );
 
-		tlb_invalidate(ptr_page_directory, (void *)virtual_address);
-	}
+    if (ptr_frame_info != NULL)
+    {
+        if (ptr_frame_info->kheap_va == virtual_address)
+        {
+           ptr_frame_info->kheap_va = 0;
+        }
+        if (ptr_frame_info->isBuffered &&
+            !CHECK_IF_KERNEL_ADDRESS((uint32)virtual_address))
+        {
+            cprintf("WARNING: Freeing BUFFERED frame at va %x!!!\n",
+                    virtual_address);
+        }
+
+        decrement_references(ptr_frame_info);
+
+        // Keep the available bits.
+        uint32 pte_available_bits =
+            ptr_page_table[PTX(virtual_address)] & PERM_AVAILABLE;
+
+        ptr_page_table[PTX(virtual_address)] = pte_available_bits;
+
+        tlb_invalidate(
+            ptr_page_directory,
+            (void *)virtual_address
+        );
+    }
 }
+
 
 
 /*/this function should be called only in the env_create() for creating the page table if not exist
