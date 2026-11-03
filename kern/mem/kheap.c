@@ -140,9 +140,12 @@ void  delete_buddy_space(void *va)
     {
         panic("invalid buddy space");
     }
-
- unmap_frame(ptr_page_directory, buddyPageVA);
- shrink_kheap_break();
+	
+   pt_set_page_permissions(ptr_page_directory, buddyPageVA, 0, PERM_BUDDY);
+	
+   unmap_frame(ptr_page_directory, buddyPageVA);
+   add_free_area(buddyPageVA, 1);
+   shrink_kheap_break();
 }
 
 
