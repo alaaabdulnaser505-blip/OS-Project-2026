@@ -103,7 +103,7 @@ void *alloc_block(uint32 requiredSize)
     if (PROPER_LEVEL > BUDDY_UPPER_LEVEL)
     {
         void *page = create_buddy_space();
-        if (page == NULL)+
+        if (page == NULL)
         {
             return NULL;
         }
