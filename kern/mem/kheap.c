@@ -83,6 +83,10 @@ void* create_buddy_space()
 	//Comment the following line
 	//panic("create_buddy_space() not implemented");
 }
+
+static void remove_free_area(uint32 index);
+static void add_free_area(uint32 start, uint32 pages);
+
 static void shrink_kheap_break()
 {
     while (kheapPageAllocBreak > KERNEL_HEAP_START)
