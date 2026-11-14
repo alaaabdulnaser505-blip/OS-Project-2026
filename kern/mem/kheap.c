@@ -138,8 +138,7 @@ void  delete_buddy_space(void *va)
 
     int buddyPagePerms = pt_get_page_permissions(ptr_page_directory, buddyPageVA);
 
-   if (buddyPageVA < kheapPageAllocStart ||
-		buddyPageVA >= kheapPageAllocBreak ||
+   if (buddyPageVA < kheapPageAllocStart || buddyPageVA >= kheapPageAllocBreak ||
 		buddyPagePerms < 0 || !(buddyPagePerms & PERM_PRESENT) || !(buddyPagePerms & PERM_BUDDY))
     {
         panic("invalid buddy space");
