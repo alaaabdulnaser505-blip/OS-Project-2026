@@ -40,8 +40,38 @@ void sleep(struct Channel *chan, struct kspinlock* lk)
 {
 	//TODO: [PROJECT'26.GM#4] BLOCKING - [13] Channel sleep
 	//Your code is here
+	struct Env *crr_process;
+	int isQLock;
+
+	if (chan == NULL || lk == NULL)
+		panic("sleep: NULL channel or NULL lock is given");
+
+	crr_process = get_cpu_proc();
+	if (crr_process == NULL)
+		panic("sleep: no running process to block");
+
+	isQLock = (lk == &ProcessQueues.qlock);
+	if (!isQLock)
+	{
+		acquire_kspinlock(&ProcessQueues.qlock);
+		release_kspinlock(lk);
+	}
+
+	crr_process->channel = chan;
+	crr_process->env_status = ENV_BLOCKED;
+	enqueue(&chan->queue, crr_process);
+
+	sched();
+
+	crr_process->channel = NULL;
+
+	if (!isQLock)
+	{
+		release_kspinlock(&ProcessQueues.qlock);
+		acquire_kspinlock(lk);
+	}
 	//Comment the following line
-	panic("sleep() is not implemented yet...!!");
+	//panic("sleep() is not implemented yet...!!");
 }
 
 //==================================================
@@ -55,8 +85,26 @@ void wakeup_one(struct Channel *chan)
 {
 	//TODO: [PROJECT'26.GM#4] BLOCKING - [14] Channel wakeup_one
 	//Your code is here
+	struct Env *targetEnv;
+	int mmsook;
+
+	if (chan == NULL)
+		panic("mfeesh channel");
+
+	mmsook = holding_kspinlock(&ProcessQueues.qlock);
+	if (!mmsook)
+		acquire_kspinlock(&ProcessQueues.qlock);
+
+	targetEnv = dequeue(&chan->queue);
+	if (targetEnv != NULL)
+	{
+		sched_insert_ready(targetEnv);
+	}
+
+	if (!mmsook)
+		release_kspinlock(&ProcessQueues.qlock);
 	//Comment the following line
-	panic("wakeup_one() is not implemented yet...!!");
+	//panic("wakeup_one() is not implemented yet...!!");
 }
 
 //====================================================
@@ -70,7 +118,24 @@ void wakeup_all(struct Channel *chan)
 {
 	//TODO: [PROJECT'26.GM#4] BLOCKING - [15] Channel wakeup_all
 	//Your code is here
+	struct Env *targetEnv;
+		int mmsook;
+
+		if (chan == NULL)
+			panic("mfeesh channel");
+
+		mmsook = holding_kspinlock(&ProcessQueues.qlock);
+		if (!mmsook)
+			acquire_kspinlock(&ProcessQueues.qlock);
+
+		for (targetEnv = dequeue(&chan->queue); targetEnv != NULL; targetEnv = dequeue(&chan->queue))
+		{
+			sched_insert_ready(targetEnv);
+		}
+
+		if (!mmsook)
+			release_kspinlock(&ProcessQueues.qlock);
 	//Comment the following line
-	panic("wakeup_all() is not implemented yet...!!");
+	//panic("wakeup_all() is not implemented yet...!!");
 }
 
